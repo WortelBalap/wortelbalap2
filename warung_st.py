@@ -293,7 +293,7 @@ elif menu == "Transaksi":
             tanggal_hari_ini = datetime.today().strftime('%Y-%m-%d_%H%M%S')
             buffer = BytesIO()
 
-            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name="Laporan")
             buffer.seek(0)
 
