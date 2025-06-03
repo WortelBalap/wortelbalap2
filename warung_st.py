@@ -14,6 +14,12 @@ st.set_page_config(
 )
 
 # =========================
+# 💰 Fungsi Format Rupiah
+# =========================
+def format_rupiah(angka):
+    return f"Rp {angka:,.0f}".replace(",", ".")
+
+# =========================
 # 🔐 Login & Session State
 # =========================
 if "logged_in" not in st.session_state:
@@ -41,7 +47,6 @@ def login_page():
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pass")
         if st.button("Login"):
-            # Cek hardcoded user dulu
             user = USERS.get(username)
             if user and user["password"] == password:
                 st.session_state.logged_in = True
@@ -50,7 +55,6 @@ def login_page():
                 st.success(f"Selamat datang, {username} ({user['role']})!")
                 st.rerun()
             else:
-                # Cek database
                 conn = sqlite3.connect("users.db")
                 c = conn.cursor()
                 c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
@@ -131,7 +135,7 @@ def init_db():
 init_db()
 
 # =========================
-# 🎨 Custom CSS for UI
+# 🎨 Custom CSS
 # =========================
 st.markdown("""
     <style>
@@ -151,7 +155,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 🥕 Data Produk
+# 🥕 Produk
 # =========================
 if "produk" not in st.session_state:
     st.session_state.produk = {
@@ -161,24 +165,21 @@ if "produk" not in st.session_state:
         "Box Sayur (25 unit)": {"harga": 15000, "stok": 250, "satuan": "pak (25 unit)"}
     }
 
-# =========================
-# 🛒 Keranjang
-# =========================
 if "keranjang" not in st.session_state:
     st.session_state.keranjang = {}
 
 # =========================
-# 🚪 Sidebar Navigasi
+# 🚪 Sidebar
 # =========================
 st.sidebar.title("🥕 Wortel Balap")
 st.sidebar.markdown(f"Login sebagai: {st.session_state.role}")
 if st.sidebar.button("🔓 Logout"):
     logout()
 
-menu = st.sidebar.radio("Navigasi", ["Home", "Product", "Checkout", "Transaksi", "Contact"])
+menu = st.sidebar.radio("Navigasi", ["Home", "Product", "Checkout", "Transaksi", "Update Stok", "Contact"])
 
 # =========================
-# 🏠 Landing Page
+# 🏠 Home
 # =========================
 if menu == "Home":
     st.image("logo.png", width=120)
@@ -192,7 +193,7 @@ if menu == "Home":
     """)
 
 # =========================
-# 🛒 Daftar Produk
+# 🛒 Produk
 # =========================
 elif menu == "Product":
     st.title("🛒 Daftar Produk")
@@ -201,13 +202,9 @@ elif menu == "Product":
     else:
         for nama, info in st.session_state.produk.items():
             st.write(f"📦 {nama}")
-            st.write(f"Harga: Rp{info['harga']} / {info['satuan']} | Stok: {info['stok']} {info['satuan']}")
-            jumlah = st.number_input(
-                f"Jumlah beli ({info['satuan']}) - {nama}",
-                min_value=0,
-                max_value=info["stok"],
-                key=f"jumlah_{nama}"
-            )
+            st.write(f"Harga: {format_rupiah(info['harga'])} / {info['satuan']} | Stok: {info['stok']} {info['satuan']}")
+            jumlah = st.number_input(f"Jumlah beli ({info['satuan']}) - {nama}",
+                                     min_value=0, max_value=info["stok"], key=f"jumlah_{nama}")
             if st.button(f"Tambah ke Keranjang - {nama}", key=f"btn_{nama}"):
                 if jumlah > 0:
                     if nama in st.session_state.keranjang:
@@ -219,7 +216,7 @@ elif menu == "Product":
                     st.warning("Masukkan jumlah minimal 1.")
 
 # =========================
-# ✅ Checkout Page
+# ✅ Checkout
 # =========================
 elif menu == "Checkout":
     st.title("🧾 Checkout & Keranjang Belanja")
@@ -231,9 +228,9 @@ elif menu == "Checkout":
             harga = st.session_state.produk[nama]["harga"]
             satuan = st.session_state.produk[nama]["satuan"]
             subtotal = harga * jumlah
-            st.write(f"{nama} - {jumlah} {satuan} x Rp{harga} = Rp{subtotal}")
+            st.write(f"{nama} - {jumlah} {satuan} x {format_rupiah(harga)} = {format_rupiah(subtotal)}")
             total += subtotal
-        st.markdown(f"💰 Total Belanja: Rp{total}")
+        st.markdown(f"💰 *Total Belanja: {format_rupiah(total)}*")
 
         st.subheader("📦 Alamat Pengiriman")
         alamat = st.text_area("Masukkan alamat lengkap Anda", placeholder="Contoh: Jl. Mawar No. 123, Bandung")
@@ -249,8 +246,8 @@ elif menu == "Checkout":
             st.info("💳 Nomor rekening: 085955557777 a.n. Wortel Balap")
 
         st.markdown("""
-        📧 Jangan lupa kirim *bukti pembayaran* ke email kami ya!
-        Cek info lengkapnya di menu *Contact* (sidebar). Agar pesananmu bisa segera kami proses. 
+        📧 Jangan lupa kirim bukti pembayaran ke email kami ya!
+        Cek info lengkapnya di menu Contact (sidebar). Agar pesananmu bisa segera kami proses. 
         Terima kasih!🥕
         """)
 
@@ -272,7 +269,7 @@ elif menu == "Checkout":
         st.info("Keranjang masih kosong.")
 
 # =========================
-# 📊 Transaksi Penjualan
+# 📊 Transaksi (Admin)
 # =========================
 elif menu == "Transaksi":
     st.title("📊 Transaksi Penjualan")
@@ -283,26 +280,136 @@ elif menu == "Transaksi":
         df = pd.read_sql_query("SELECT * FROM transaksi", conn)
         conn.close()
 
+        # Salin untuk tampilan saja
+        df_display = df.copy()
+        df_display['subtotal'] = df_display['subtotal'].apply(lambda x: f"Rp{x:,.0f}".replace(",", "."))
+
         if df.empty:
             st.warning("Tidak ada data untuk diekspor.")
         else:
-            st.dataframe(df)
+            st.dataframe(df_display)  # ✅ tampilkan yang sudah diformat
+
             total_pendapatan = df["subtotal"].sum()
-            st.markdown(f"💵 Total Pendapatan: Rp{total_pendapatan}")
+            st.markdown(f"💵 *Total Pendapatan: {format_rupiah(total_pendapatan)}*")
 
-            tanggal_hari_ini = datetime.today().strftime('%Y-%m-%d_%H%M%S')
             buffer = BytesIO()
-
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name="Laporan")
+                workbook  = writer.book
+                worksheet = writer.sheets["Laporan"]
+                format_rp = workbook.add_format({'num_format': 'Rp #,##0'})
+                worksheet.set_column('D:D', 18, format_rp)
             buffer.seek(0)
 
             st.download_button(
                 label="📥 Download Laporan (Excel)",
                 data=buffer,
-                file_name=f"laporan_keuangan_{tanggal_hari_ini}.xlsx",
+                file_name=f"laporan_keuangan_{datetime.today().strftime('%Y-%m-%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+from datetime import datetime  # Pastikan ini ada di awal file
+
+# =========================
+# 📦 Update Stok (Admin)
+# =========================
+if menu == "Update Stok":
+    st.title("Update Stok")
+    
+    if st.session_state.role != "admin":
+        st.warning("Halaman ini hanya untuk admin.")
+    else:
+        # Inisialisasi dict produk jika belum ada
+        if "produk" not in st.session_state:
+            st.session_state.produk = {}
+
+        # Inisialisasi riwayat jika belum ada
+        if "riwayat_stok" not in st.session_state:
+            st.session_state.riwayat_stok = []
+
+        st.subheader("📋 Kelola Produk yang Ada")
+        produk_list = list(st.session_state.produk.keys())
+        if produk_list:
+            produk_terpilih = st.selectbox("Pilih produk", produk_list)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                stok_perubahan = st.number_input("Ubah stok (positif: tambah, negatif: kurang)", value=0)
+            with col2:
+                harga_input = st.number_input(
+                    "Ubah harga (kosongkan jika tidak ingin diubah)",
+                    value=st.session_state.produk[produk_terpilih]["harga"]
+                )
+
+            if st.button("💾 Simpan Perubahan"):
+                old_stok = st.session_state.produk[produk_terpilih]["stok"]
+                old_harga = st.session_state.produk[produk_terpilih]["harga"]
+
+                st.session_state.produk[produk_terpilih]["stok"] += stok_perubahan
+                st.session_state.produk[produk_terpilih]["harga"] = harga_input
+
+                st.session_state.riwayat_stok.append({
+                    "produk": produk_terpilih,
+                    "aksi": "Update Stok/Harga",
+                    "stok_awal": old_stok,
+                    "stok_akhir": st.session_state.produk[produk_terpilih]["stok"],
+                    "harga_awal": old_harga,
+                    "harga_akhir": harga_input,
+                    "oleh": st.session_state.username,
+                    "waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+
+                st.success(f"{produk_terpilih} berhasil diperbarui.")
+
+        else:
+            st.info("Belum ada produk.")
+
+        st.markdown("---")
+        st.subheader("➕ Tambah Produk Baru")
+        with st.form("form_tambah_produk"):
+            nama_baru = st.text_input("Nama produk")
+            harga_baru2 = st.number_input("Harga produk", min_value=0)
+            satuan_baru = st.text_input("Satuan (contoh: kg, pcs, ikat)")
+            stok_awal = st.number_input("Stok awal", min_value=0)
+            submitted = st.form_submit_button("Tambah Produk")
+
+            if submitted:
+                if nama_baru in st.session_state.produk:
+                    st.warning("Produk sudah ada. Gunakan bagian atas untuk memperbarui.")
+                elif nama_baru == "":
+                    st.warning("Nama produk tidak boleh kosong.")
+                else:
+                    st.session_state.produk[nama_baru] = {
+                        "harga": harga_baru2,
+                        "satuan": satuan_baru,
+                        "stok": stok_awal
+                    }
+
+                    st.session_state.riwayat_stok.append({
+                        "produk": nama_baru,
+                        "aksi": "Tambah Produk Baru",
+                        "stok_awal": 0,
+                        "stok_akhir": stok_awal,
+                        "harga_awal": 0,
+                        "harga_akhir": harga_baru2,
+                        "oleh": st.session_state.username,
+                        "waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+
+                    st.success(f"Produk '{nama_baru}' berhasil ditambahkan.")
+
+        st.markdown("---")
+        st.subheader("📜 Riwayat Perubahan Stok")
+        if st.session_state.riwayat_stok:
+            for log in reversed(st.session_state.riwayat_stok[-10:]):
+                st.markdown(f"""
+                🔹 *[{log["waktu"]}]* {log["aksi"]} oleh *{log["oleh"]}*  
+                Produk: *{log["produk"]}*  
+                Stok: {log["stok_awal"]} ➝ {log["stok_akhir"]} | Harga: Rp{log["harga_awal"]} ➝ Rp{log["harga_akhir"]}
+                """)
+        else:
+            st.info("Belum ada riwayat stok.")
+
 
 # =========================
 # 📞 Kontak
